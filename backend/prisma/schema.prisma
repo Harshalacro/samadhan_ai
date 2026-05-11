@@ -1,0 +1,36 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Complaint {
+  id           String   @id @default(uuid())
+  citizenName  String
+  mobile       String
+  email        String?
+  description  String
+  category     String?
+  department   String?
+  priority     String?
+  severity     String?
+  location     String?
+  imageUrl     String?
+  status       String   @default("Submitted")
+  aiConfidence Int?
+  upvotes      Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  role      String   @default("Officer")
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+}

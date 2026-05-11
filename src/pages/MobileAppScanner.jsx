@@ -1,11 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Camera, X, Zap, MapPin, 
-  ChevronUp, Scan, Info, ShieldAlert
+  ChevronUp, Scan, Info, ShieldAlert, Loader2
 } from 'lucide-react';
+import { useComplaints } from '../context/ComplaintContext';
+import { useNavigate } from 'react-router-dom';
 
 const MobileAppScanner = () => {
+  const { addComplaint, user } = useComplaints();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0', background: '#111', minHeight: '100vh', color: 'white' }}>
       {/* Phone Frame */}
@@ -109,9 +115,26 @@ const MobileAppScanner = () => {
                </div>
             </div>
 
-            <button className="btn-saffron" style={{ width: '100%', padding: '16px', borderRadius: '16px', fontSize: '1.1rem', boxShadow: '0 4px 15px rgba(255,107,0,0.3)' }} onClick={() => window.location.href = '/'}>
-               Submit Report to PWD
+            <button 
+              className="btn-saffron" 
+              disabled={loading}
+              style={{ width: '100%', padding: '16px', borderRadius: '16px', fontSize: '1.1rem', boxShadow: '0 4px 15px rgba(255,107,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} 
+              onClick={async () => {
+                if (!user) return alert("Please login first.");
+                setLoading(true);
+                const formData = new FormData();
+                formData.append('citizenName', user.name);
+                formData.append('mobile', user.mobile);
+                formData.append('description', "AI Pothole Detection: High severity pothole (45x30cm) detected on NH-48.");
+                formData.append('location', "28.4595, 77.0266"); // Mock but specific
+                await addComplaint(formData);
+                setLoading(false);
+                navigate('/track');
+              }}
+            >
+               {loading ? <Loader2 className="animate-spin" /> : 'Submit Report to PWD'}
             </button>
+
             <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                Add description (Optional)
             </p>

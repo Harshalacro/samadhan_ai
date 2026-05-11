@@ -1,110 +1,206 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, Phone, MapPin, Building, 
   MessageSquare, Mic, Globe, Camera,
   CheckCircle, Loader2, AlertCircle, Sparkles,
-  Map as MapIcon, ChevronRight, ChevronLeft, ShieldCheck
+  Map as MapIcon, ChevronRight, ChevronLeft, ShieldCheck,
+  Lock, Check
 } from 'lucide-react';
 
 import { useComplaints } from '../context/ComplaintContext';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const ComplaintForm = () => {
   const navigate = useNavigate();
-  const { addComplaint, simulateAIAnalysis } = useComplaints();
+  const { t } = useTranslation();
+  const { addComplaint, simulateAIAnalysis, sendOTP, verifyOTP, user } = useComplaints();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [aiDetecting, setAiDetecting] = useState(false);
   const [complaintText, setComplaintText] = useState('');
   const [detectedLang, setDetectedLang] = useState(null);
   
+  // Auth State
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [isVerified, setIsVerified] = useState(!!user);
+
   // Form State
   const [formData, setFormData] = useState({
-    name: '',
-    mobile: '',
-    state: '',
-    district: '',
-    category: 'Roads'
+    name: user?.name || '',
+    mobile: user?.mobile || '',
+    email: user?.email || '',
+    state: 'Haryana',
+    district: 'Gurugram',
+    location: ''
   });
-  const [uploadedMedia, setUploadedMedia] = useState(null);
+  
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [voiceRecording, setVoiceRecording] = useState(false);
+  const fileInputRef = useRef(null);
+
 
   const steps = [
-    { id: 1, label: 'Identity', icon: <User size={18}/> },
-    { id: 2, label: 'Details', icon: <MessageSquare size={18}/> },
-    { id: 3, label: 'Verification', icon: <Camera size={18}/> },
+    { id: 1, label: t('form.identity'), icon: <User size={18}/> },
+    { id: 2, label: t('form.details'), icon: <MessageSquare size={18}/> },
+    { id: 3, label: t('form.verification'), icon: <Camera size={18}/> },
   ];
 
   const [analysisResult, setAnalysisResult] = useState(null);
 
-  // Simulation of AI Language Detection
+  // Get Geolocation
   useEffect(() => {
-    if (complaintText.length > 5 && !detectedLang) {
-      setAiDetecting(true);
-      setTimeout(() => {
-        setDetectedLang('Hindi 🇮🇳');
-        setAiDetecting(false);
-      }, 1500);
+    if (step === 3 && !formData.location) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setFormData(prev => ({ 
+            ...prev, 
+            location: `${position.coords.latitude}, ${position.coords.longitude}` 
+          }));
+        },
+        (error) => console.error("Location error:", error)
+      );
     }
-  }, [complaintText]);
+  }, [step]);
 
-  const handleFinish = () => {
+  const handleGetOTP = async () => {
+    if (!formData.mobile) return alert("Please enter mobile number");
     setLoading(true);
-    const newId = `SAM-2024-${formData.state.substring(0, 2).toUpperCase() || 'IN'}-${Math.floor(100000 + Math.random() * 900000)}`;
-    const finalAnalysis = simulateAIAnalysis(complaintText, !!uploadedMedia);
-
-    const complaintRecord = {
-      id: newId,
-      citizen: formData.name || 'Anonymous User',
-      category: finalAnalysis.category,
-      location: `${formData.district}, ${formData.state}`,
-      priority: finalAnalysis.priority,
-      severity: finalAnalysis.severity,
-      aiConfidence: finalAnalysis.confidence,
-      status: 'Submitted',
-      time: 'Just now',
-      desc: complaintText,
-      dept: finalAnalysis.dept,
-      sla: finalAnalysis.priority.includes('P0') ? 'Within 12 hours' : 'Within 24 hours',
-      filedVia: 'Web'
-    };
-    
-    setTimeout(() => {
-      addComplaint(complaintRecord);
-      setLoading(false);
-      navigate('/track');
-    }, 1500);
+    await sendOTP(formData.mobile);
+    setOtpSent(true);
+    setLoading(false);
   };
 
-  const nextStep = () => {
+  const handleVerifyOTP = async () => {
+    setLoading(true);
+    const success = await verifyOTP(formData.mobile, otp);
+    if (success) {
+      setIsVerified(true);
+      setStep(2);
+    } else {
+      alert("Invalid OTP. Try 1234");
+    }
+    setLoading(false);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [submittedId, setSubmittedId] = useState('');
+
+  const handleFinish = async () => {
+    setLoading(true);
+    
+    const data = new FormData();
+    data.append('citizenName', formData.name);
+    data.append('mobile', formData.mobile);
+    data.append('email', formData.email);
+    data.append('description', complaintText);
+    data.append('location', formData.location || `${formData.district}, ${formData.state}`);
+    if (selectedFile) {
+      data.append('image', selectedFile);
+    }
+    
+    try {
+      const res = await addComplaint(data);
+      setSubmittedId(res.id);
+      setLoading(false);
+      setShowSuccess(true);
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+      alert("Failed to submit complaint. Check console.");
+    }
+  };
+
+  const nextStep = async () => {
     if (step === 3) {
-      handleFinish();
+      setLoading(true);
+      try {
+        const data = new FormData();
+        data.append('citizenName', formData.name);
+        data.append('mobile', formData.mobile);
+        data.append('email', formData.email);
+        data.append('description', complaintText);
+        data.append('location', formData.location || `${formData.district}, ${formData.state}`);
+        if (selectedFile) data.append('image', selectedFile);
+        
+        const res = await addComplaint(data);
+        setSubmittedId(res.id);
+        setShowSuccess(true);
+      } catch (err) {
+        console.error(err);
+        alert("Failed to submit. Check console.");
+      }
+      setLoading(false);
       return;
     }
     
+    if (step === 1 && !isVerified) {
+      alert("Please verify your mobile number first.");
+      return;
+    }
+
     if (step === 2) {
-       // Simulate AI processing transition
+       if (!complaintText) return alert("Please describe the issue.");
        setLoading(true);
-       setTimeout(() => {
-          setAnalysisResult(simulateAIAnalysis(complaintText, !!uploadedMedia));
-          setLoading(false);
-          setStep(step + 1);
-       }, 1200);
+       const analysis = await simulateAIAnalysis(complaintText);
+       setAnalysisResult(analysis);
+       setLoading(false);
+       setStep(step + 1);
        return;
     }
 
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setStep(step + 1);
-    }, 800);
+    setStep(step + 1);
   };
 
   const prevStep = () => setStep(step - 1);
 
   return (
     <div className="container" style={{ maxWidth: '800px', padding: '60px 0' }}>
+      {/* Success Modal */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              style={{ background: 'white', padding: '40px', borderRadius: '24px', maxWidth: '500px', width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-lg)' }}
+            >
+              <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--accent-green)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                <Check size={40} />
+              </div>
+              <h2 style={{ marginBottom: '12px' }}>Complaint Submitted!</h2>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>Aapki shikayat darj kar li gayi hai. Our AI system has routed it to the relevant department.</p>
+              
+              <div style={{ background: '#F8FAFC', padding: '20px', borderRadius: '12px', border: '1px dashed #CBD5E0', marginBottom: '32px' }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>TRACKING ID</p>
+                <p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--primary)', letterSpacing: '2px' }}>{submittedId}</p>
+              </div>
+
+              <div className="flex" style={{ flexDirection: 'column', gap: '12px' }}>
+                <button className="btn-saffron" style={{ width: '100%', padding: '16px' }} onClick={() => navigate('/track')}>Track Live Progress</button>
+                <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: '600', cursor: 'pointer' }} onClick={() => navigate('/')}>Back to Home</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Progress Bar */}
       <div style={{ marginBottom: '40px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -153,7 +249,7 @@ const ComplaintForm = () => {
               <h2 style={{ marginBottom: '24px' }}>Personal Information</h2>
               <div className="grid">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '8px', fontWeight: '500' }}>Full Name</label>
+                  <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '8px', fontWeight: '500' }}>{t('form.fullName')}</label>
                   <input 
                     type="text" 
                     placeholder="Enter your name" 
@@ -162,25 +258,74 @@ const ComplaintForm = () => {
                     style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }} 
                   />
                 </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '8px', fontWeight: '500' }}>Email Address</label>
+                  <input 
+                    type="email" 
+                    placeholder="Enter your email" 
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }} 
+                  />
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '12px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '8px', fontWeight: '500' }}>Mobile Number</label>
+                    <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '8px', fontWeight: '500' }}>{t('form.mobile')}</label>
                     <div style={{ position: 'relative' }}>
                       <span style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }}>+91</span>
                       <input 
                         type="tel" 
                         placeholder="Mobile Number" 
+                        disabled={isVerified}
                         value={formData.mobile}
                         onChange={(e) => setFormData({...formData, mobile: e.target.value})}
                         style={{ width: '100%', padding: '12px 12px 12px 45px', borderRadius: '8px', border: '1px solid #E2E8F0' }} 
                       />
                     </div>
                   </div>
-                  <button className="btn-primary" style={{ alignSelf: 'end', height: '45px', padding: '0' }} type="button">Get OTP</button>
+                  {!isVerified && (
+                    <button 
+                      className="btn-primary" 
+                      onClick={handleGetOTP}
+                      disabled={loading}
+                      style={{ alignSelf: 'end', height: '45px', padding: '0' }}
+                    >
+                      {loading ? <Loader2 className="animate-spin" /> : otpSent ? 'Resend' : 'Get OTP'}
+                    </button>
+                  )}
+                  {isVerified && (
+                    <div style={{ alignSelf: 'end', height: '45px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-green)', fontWeight: 'bold' }}>
+                      <Check size={20} /> Verified
+                    </div>
+                  )}
                 </div>
+
+                {otpSent && !isVerified && (
+                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '8px', fontWeight: '500' }}>Enter 4-Digit OTP</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '12px' }}>
+                      <div style={{ position: 'relative' }}>
+                        <Lock size={16} style={{ position: 'absolute', left: '12px', top: '14px', color: 'var(--text-muted)' }} />
+                        <input 
+                          type="text" 
+                          maxLength={4}
+                          placeholder="XXXX" 
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value)}
+                          style={{ width: '100%', padding: '12px 12px 12px 40px', borderRadius: '8px', border: '1px solid var(--accent-saffron)', letterSpacing: '4px', fontWeight: 'bold' }} 
+                        />
+                      </div>
+                      <button className="btn-saffron" onClick={handleVerifyOTP} disabled={loading}>
+                        {loading ? <Loader2 size={18} className="animate-spin" /> : 'Verify'}
+                      </button>
+                    </div>
+                    <p style={{ fontSize: '0.75rem', marginTop: '8px', color: 'var(--text-muted)' }}>Hint: Use 1234 for testing.</p>
+                  </motion.div>
+                )}
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '8px', fontWeight: '500' }}>State</label>
+                    <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '8px', fontWeight: '500' }}>{t('form.state')}</label>
                     <select 
                       value={formData.state}
                       onChange={(e) => setFormData({...formData, state: e.target.value})}
@@ -194,7 +339,7 @@ const ComplaintForm = () => {
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '8px', fontWeight: '500' }}>District</label>
+                    <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '8px', fontWeight: '500' }}>{t('form.district')}</label>
                     <select 
                       value={formData.district}
                       onChange={(e) => setFormData({...formData, district: e.target.value})}
@@ -304,15 +449,16 @@ const ComplaintForm = () => {
               <h2 style={{ marginBottom: '24px' }}>Evidence & Location</h2>
               <div className="grid">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '12px', fontWeight: '500' }}>Upload Photos</label>
+                  <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '12px', fontWeight: '500' }}>Photo Upload (Mandatory)</label>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    hidden 
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                  />
                   <div 
-                    onClick={() => {
-                        setLoading(true);
-                        setTimeout(() => {
-                           setUploadedMedia("https://images.unsplash.com/photo-1544377193-33dcf4d68fb5?w=400");
-                           setLoading(false);
-                        }, 1000);
-                    }}
+                    onClick={() => fileInputRef.current.click()}
                     style={{ 
                         border: '2px dashed #CBD5E0', 
                         borderRadius: '12px', 
@@ -320,63 +466,37 @@ const ComplaintForm = () => {
                         textAlign: 'center', 
                         background: '#F8FAFC',
                         cursor: 'pointer',
-                        transition: '0.2s',
-                        borderColor: uploadedMedia ? 'var(--accent-green)' : '#CBD5E0'
+                        borderColor: selectedFile ? 'var(--accent-green)' : '#CBD5E0'
                     }}
                   >
-                    {uploadedMedia ? (
-                        <div style={{ color: 'var(--accent-green)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <CheckCircle size={40} />
-                            <p style={{ marginTop: '8px', fontWeight: 'bold' }}>Photo Analyzed by AI</p>
+                    {previewUrl ? (
+                        <div style={{ position: 'relative', height: '120px' }}>
+                            <img src={previewUrl} style={{ height: '100%', borderRadius: '8px' }} />
+                            <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', background: 'var(--accent-green)', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem' }}>Selected</div>
                         </div>
                     ) : (
                         <>
-                            <div style={{ color: 'var(--accent-saffron)', marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
-                            <Camera size={40} />
-                            </div>
-                            <p style={{ fontWeight: '600' }}>Click to upload pothole photo</p>
-                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>AI will analyze dimensions instantly</p>
+                            <Camera size={40} color="var(--accent-saffron)" style={{ margin: '0 auto 12px' }} />
+                            <p style={{ fontWeight: '600' }}>Click to select photo</p>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Required for department verification</p>
                         </>
                     )}
                   </div>
-                  
-                  {/* Photo Preview with AI Bounding Box */}
-                  {uploadedMedia && (
-                    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
-                      <div style={{ position: 'relative', width: '100%', height: '180px', borderRadius: '12px', overflow: 'hidden', boxShadow: 'var(--shadow-md)' }}>
-                        <img src={uploadedMedia} alt="Pothole" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <div style={{ 
-                          position: 'absolute', 
-                          top: '30px', 
-                          left: '40px', 
-                          right: '60px', 
-                          bottom: '50px', 
-                          border: '2px solid #EF4444',
-                          background: 'rgba(239, 68, 68, 0.1)',
-                          pointerEvents: 'none'
-                        }}>
-                          <span style={{ background: '#EF4444', color: 'white', fontSize: '10px', padding: '2px 8px', position: 'absolute', top: '-10px', left: '-2px', fontWeight: 'bold' }}>
-                            Pothole Detected (High Severity)
-                          </span>
-                        </div>
-                        <div style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem' }}>
-                           D: 45cm | W: 32cm
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '12px', fontWeight: '500' }}>Location Detection</label>
-                  <div style={{ background: '#E2E8F0', height: '150px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-                    <MapIcon size={40} color="var(--text-muted)" />
+                  <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '12px', fontWeight: '500' }}>Real-time Location</label>
+                  <div style={{ background: '#F1F5F9', height: '150px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', border: '1px solid #E2E8F0' }}>
+                    <MapIcon size={40} color="#94A3B8" />
                     <div style={{ position: 'absolute', bottom: '12px', left: '12px', right: '12px', background: 'white', padding: '8px 12px', borderRadius: '8px', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <MapPin size={16} color="var(--accent-saffron)" />
-                      <span style={{ fontSize: '0.8rem', fontWeight: '500' }}>NH-48, Near Toll Plaza, Gurugram</span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: '600' }}>
+                        {formData.location || "Detecting GPS location..."}
+                      </span>
                     </div>
                   </div>
                 </div>
+
 
                 <div style={{ background: 'rgba(13,27,62,0.03)', padding: '24px', borderRadius: '12px', border: '1px solid #E2E8F0', gridColumn: '1 / -1' }}>
                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #E2E8F0', paddingBottom: '16px' }}>
@@ -437,10 +557,10 @@ const ComplaintForm = () => {
           <button 
             className="btn-saffron" 
             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            onClick={step === 3 ? () => window.location.href = '/track' : nextStep}
+            onClick={nextStep}
             disabled={loading}
           >
-            {loading ? <Loader2 className="animate-spin" /> : step === 3 ? 'Submit Complaint' : 'Continue'}
+            {loading ? <Loader2 className="animate-spin" /> : step === 3 ? 'Submit Complaint' : t('form.continue')}
             {step < 3 && !loading && <ChevronRight size={18} />}
           </button>
         </div>

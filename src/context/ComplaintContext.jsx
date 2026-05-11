@@ -1,85 +1,130 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const ComplaintContext = createContext();
 
 export const ComplaintProvider = ({ children }) => {
-  const [complaints, setComplaints] = useState([
-    { 
-      id: 'SAM-2024-HR-004782', 
-      citizen: 'Ramesh Kumar', 
-      category: 'Roads', 
-      location: 'NH-48, Gurugram', 
-      priority: 'P0', 
-      status: 'In Progress', 
-      time: '2h ago',
-      desc: 'Large pothole near Kherki Daula toll is causing massive traffic jam and risks accidents for bikers.',
-      dept: 'PWD Haryana',
-      sla: 'Within 24 hours',
-      filedVia: 'Web'
-    },
-    { 
-      id: 'SAM-2024-HR-004785', 
-      citizen: 'Priya Sharma', 
-      category: 'Water', 
-      location: 'Sector 14, Gurugram', 
-      priority: 'P1', 
-      status: 'Assigned', 
-      time: '4h ago',
-      desc: 'No water supply for 3 days in our society. Several complaints filed to Jal Board but no action.',
-      dept: 'Jal Board',
-      sla: 'Within 48 hours',
-      filedVia: 'App'
-    },
-  ]);
+  const [complaints, setComplaints] = useState([]);
+  const [user, setUser] = useState(null);
+  const [officer, setOfficer] = useState(null);
+  const API_URL = 'http://localhost:5000/api';
 
-  const addComplaint = (newComplaint) => {
-    setComplaints([newComplaint, ...complaints]);
-  };
+  useEffect(() => {
+    fetchComplaints();
+    const savedUser = localStorage.getItem('samadhan_user');
+    if (savedUser) setUser(JSON.parse(savedUser));
+    const savedOfficer = localStorage.getItem('samadhan_officer');
+    if (savedOfficer) setOfficer(JSON.parse(savedOfficer));
+  }, []);
 
-  const updateComplaintStatus = (id, newStatus) => {
-    setComplaints(complaints.map(c => c.id === id ? { ...c, status: newStatus } : c));
-  };
-
-  const simulateAIAnalysis = (text, hasMedia) => {
-    const lowerText = text.toLowerCase();
-    let category = 'Public Services';
-    let dept = 'Municipal Corp.';
-    let priority = 'P2 Medium';
-    let severity = 'Low';
-    let confidence = Math.floor(Math.random() * 15) + 80; // 80-95%
-    
-    // Simple heuristic-based NLP simulation
-    if (lowerText.includes('pothole') || lowerText.includes('road') || lowerText.includes('सड़क') || lowerText.includes('kherki')) {
-      category = 'Roads';
-      dept = 'PWD';
-      priority = hasMedia ? 'P1 High' : 'P2 Medium';
-      severity = hasMedia ? 'High' : 'Medium';
-      confidence += 4;
-    } else if (lowerText.includes('water') || lowerText.includes('pani') || lowerText.includes('पानी')) {
-      category = 'Water Supply';
-      dept = 'Jal Board';
-      priority = 'P0 Critical';
-      severity = 'Critical';
-      confidence += 3;
-    } else if (lowerText.includes('electricity') || lowerText.includes('power') || lowerText.includes('bijli') || lowerText.includes('बिजली')) {
-      category = 'Electricity';
-      dept = 'Power Body';
-      priority = 'P0 Critical';
-      severity = 'Critical';
-      confidence += 2;
-    } else if (lowerText.includes('garbage') || lowerText.includes('sanitation') || lowerText.includes('kachra') || lowerText.includes('कचरा')) {
-      category = 'Sanitation';
-      dept = 'Waste Mgmt.';
-      priority = 'P2 Medium';
-      severity = 'Medium';
-      confidence += 5;
+  const fetchComplaints = async () => {
+    try {
+      const res = await fetch(`${API_URL}/complaints`);
+      const data = await res.json();
+      setComplaints(data);
+    } catch (err) {
+      console.error('Failed to fetch complaints:', err);
     }
+  };
 
-    return { category, dept, priority, severity, confidence: Math.min(confidence, 99) };
+  const addComplaint = async (formData) => {
+    try {
+      const res = await fetch(`${API_URL}/complaints`, {
+        method: 'POST',
+        body: formData // Sending as FormData for file upload
+      });
+      const saved = await res.json();
+      setComplaints([saved, ...complaints]);
+      return saved;
+    } catch (err) {
+      console.error('Failed to submit complaint:', err);
+      throw err;
+    }
+  };
+
+  const updateComplaintStatus = async (id, newStatus) => {
+    try {
+      await fetch(`${API_URL}/complaints/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      setComplaints(complaints.map(c => c.id === id ? { ...c, status: newStatus } : c));
+    } catch (err) {
+      console.error('Failed to update status:', err);
+    }
+  };
+
+  const simulateAIAnalysis = async (text) => {
+    try {
+      const res = await fetch(`${API_URL}/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: text })
+      });
+      const data = await res.json();
+      return {
+        category: data.category || 'General',
+        dept: data.department || 'Municipal Corp.',
+        priority: data.priority || 'P2 Medium',
+        severity: data.severity || 'Medium',
+        confidence: data.confidence || 85
+      };
+    } catch (err) {
+      console.error('Failed AI analysis:', err);
+      return { category: 'General', dept: 'Municipal Corp.', priority: 'P2 Medium', severity: 'Medium', confidence: 50 };
+    }
+  };
+
+  const sendOTP = async (mobile) => {
+    await fetch(`${API_URL}/auth/otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile })
+    });
+  };
+
+  const verifyOTP = async (mobile, otp) => {
+    const res = await fetch(`${API_URL}/auth/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile, otp })
+    });
+    const data = await res.json();
+    if (data.success) {
+      setUser(data.user);
+      localStorage.setItem('samadhan_user', JSON.stringify(data.user));
+      return true;
+    }
+    return false;
+  };
+
+  const loginOfficer = async (id, password) => {
+    const res = await fetch(`${API_URL}/auth/officer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, password })
+    });
+    const data = await res.json();
+    if (data.success) {
+      setOfficer(data.user);
+      localStorage.setItem('samadhan_officer', JSON.stringify(data.user));
+      return true;
+    }
+    return false;
+  };
+
+  const logout = () => {
+    setUser(null);
+    setOfficer(null);
+    localStorage.removeItem('samadhan_user');
+    localStorage.removeItem('samadhan_officer');
   };
 
   return (
-    <ComplaintContext.Provider value={{ complaints, addComplaint, updateComplaintStatus, simulateAIAnalysis }}>
+    <ComplaintContext.Provider value={{ 
+      complaints, user, officer, addComplaint, updateComplaintStatus, 
+      simulateAIAnalysis, sendOTP, verifyOTP, loginOfficer, logout 
+    }}>
       {children}
     </ComplaintContext.Provider>
   );

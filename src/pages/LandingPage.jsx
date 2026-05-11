@@ -6,9 +6,11 @@ import {
   Zap, Globe, ChevronRight 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const stats = [
     { label: 'Citizens', value: '1.4B+' },
@@ -18,12 +20,13 @@ const LandingPage = () => {
   ];
 
   const features = [
-    { title: 'Photo Reporting', icon: <Camera />, desc: 'AI analyzes potholes & infrastructure damage instantly.' },
-    { title: 'Voice Complaints', icon: <Mic />, desc: 'File grievances in your native dialect via voice.' },
-    { title: 'WhatsApp Bot', icon: <MessageCircle />, desc: 'Report issues directly from your favorite chat app.' },
-    { title: 'GPS Mapping', icon: <MapPin />, desc: 'Precise location auto-tagging for faster resolution.' },
-    { title: 'Priority Routing', icon: <Zap />, desc: 'AI classifies urgency from P0 to P3 automatically.' },
-    { title: 'Officer Dashboard', icon: <BarChart3 />, desc: 'Real-time analytics for government departments.' },
+    { title: 'Pothole Detection', icon: <Camera />, desc: 'AI analyzes potholes & infrastructure damage instantly.', link: '/pothole' },
+    { title: 'Waste Management', icon: <Zap />, desc: 'Report illegal dumping or overflowing bins with live GPS.', link: '/waste' },
+    { title: 'Voice Complaints', icon: <Mic />, desc: 'File grievances in your native dialect via voice.', link: '/report' },
+    { title: 'WhatsApp Bot', icon: <MessageCircle />, desc: 'Report issues directly from your favorite chat app.', link: '/whatsapp' },
+    { title: 'GPS Mapping', icon: <MapPin />, desc: 'Precise location auto-tagging for faster resolution.', link: '/report' },
+    { title: 'Officer Dashboard', icon: <BarChart3 />, desc: 'Real-time analytics for government departments.', link: '/login' },
+
   ];
 
   const workflow = [
@@ -54,24 +57,21 @@ const LandingPage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h1 style={{ fontSize: '4rem', fontWeight: '800', lineHeight: '1.1', marginBottom: '24px' }}>
-              Report Any Problem, <br/>
-              <span style={{ color: 'var(--accent-saffron)' }}>Anywhere in India</span>
+            <h1 style={{ fontSize: '4rem', fontWeight: '800', lineHeight: '1.1', marginBottom: '24px' }} dangerouslySetInnerHTML={{ __html: t('hero.title') }}>
             </h1>
             <p style={{ fontSize: '1.5rem', opacity: 0.9, marginBottom: '40px', maxWidth: '800px', margin: '0 auto 40px' }}>
-              AI-powered grievance system in 22+ Indian languages. <br/>
-              "Aapki Awaaz, Hamare Kadam"
+              {t('hero.subtitle')}
             </p>
             
             <div className="flex" style={{ justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
               <button className="btn-saffron" style={{ fontSize: '1.1rem', padding: '16px 40px' }} onClick={() => navigate('/report')}>
-                File a Complaint
+                {t('hero.report_btn')}
               </button>
               <button className="btn-primary" style={{ fontSize: '1.1rem', padding: '16px 40px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }} onClick={() => navigate('/track')}>
-                Track Status
+                {t('hero.track_btn')}
               </button>
               <button className="btn-primary" style={{ fontSize: '1.1rem', padding: '16px 40px', background: 'white', color: 'var(--primary)' }} onClick={() => navigate('/login')}>
-                Officer Login
+                {t('nav.login')}
               </button>
             </div>
           </motion.div>
@@ -101,9 +101,11 @@ const LandingPage = () => {
               <motion.div 
                 key={i} 
                 className="glass-card" 
-                style={{ padding: '32px', textAlign: 'center', background: 'white' }}
+                style={{ padding: '32px', textAlign: 'center', background: 'white', cursor: 'pointer' }}
                 whileHover={{ y: -10, boxShadow: 'var(--shadow-lg)' }}
+                onClick={() => navigate(f.link)}
               >
+
                 <div style={{ color: 'var(--accent-saffron)', marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
                   {React.cloneElement(f.icon, { size: 40 })}
                 </div>

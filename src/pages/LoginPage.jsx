@@ -1,19 +1,49 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, User, Briefcase, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Shield, User, Briefcase, Lock, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useComplaints } from '../context/ComplaintContext';
 
 const LoginPage = () => {
-  const [type, setType] = useState('citizen');
   const navigate = useNavigate();
+  const { sendOTP, verifyOTP, loginOfficer } = useComplaints();
+  const [type, setType] = useState('citizen');
+  const [mobile, setMobile] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleGetOTP = async () => {
+    if (!mobile) return alert("Please enter mobile number");
+    setLoading(true);
+    await sendOTP(mobile);
+    setOtpSent(true);
+    setLoading(false);
+  };
+
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setLoading(true);
+
     if (type === 'officer') {
-      navigate('/officer');
-    } else {
-      navigate('/report');
+      const success = await loginOfficer(mobile, otp); // mobile acts as ID, otp as password
+      if (success) {
+        navigate('/officer');
+      } else {
+        alert("Invalid Officer Credentials.");
+      }
+      setLoading(false);
+      return;
     }
+
+    setLoading(true);
+    const success = await verifyOTP(mobile, otp);
+    if (success) {
+      navigate('/report');
+    } else {
+      alert("Invalid OTP. Try 1234");
+    }
+    setLoading(false);
   };
 
   return (
@@ -76,29 +106,45 @@ const LoginPage = () => {
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>
               {type === 'citizen' ? 'Mobile Number' : 'Officer ID / Email'}
             </label>
-            <input 
-              type="text" 
-              placeholder={type === 'citizen' ? 'Enter 10-digit mobile' : 'Enter Employee ID'} 
-              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }} 
-              required
-            />
-          </div>
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>OTP / Password</label>
-            <div style={{ position: 'relative' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: type === 'citizen' && !otpSent ? '1fr 100px' : '1fr', gap: '10px' }}>
               <input 
-                type="password" 
-                placeholder="••••••" 
+                type="text" 
+                placeholder={type === 'citizen' ? 'Enter 10-digit mobile' : 'Enter Employee ID'} 
+                value={mobile}
+                onChange={(e) => setMobile(e.target.value)}
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }} 
                 required
               />
-              <Lock size={18} style={{ position: 'absolute', right: '12px', top: '12px', color: '#CBD5E0' }} />
+              {type === 'citizen' && !otpSent && (
+                <button type="button" onClick={handleGetOTP} className="btn-primary" style={{ padding: '0', fontSize: '0.8rem' }}>
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : 'Get OTP'}
+                </button>
+              )}
             </div>
-            {type === 'citizen' && <p style={{ fontSize: '0.75rem', color: 'var(--accent-saffron)', marginTop: '8px', textAlign: 'right', cursor: 'pointer', fontWeight: '600' }}>Resend OTP</p>}
           </div>
+          
+          {(type === 'officer' || otpSent) && (
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>
+                {type === 'citizen' ? 'Enter OTP' : 'Password'}
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="password" 
+                  placeholder={type === 'citizen' ? 'XXXX' : '••••••'} 
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }} 
+                  required
+                />
+                <Lock size={18} style={{ position: 'absolute', right: '12px', top: '12px', color: '#CBD5E0' }} />
+              </div>
+              {type === 'citizen' && <p onClick={handleGetOTP} style={{ fontSize: '0.75rem', color: 'var(--accent-saffron)', marginTop: '8px', textAlign: 'right', cursor: 'pointer', fontWeight: '600' }}>Resend OTP</p>}
+            </div>
+          )}
 
-          <button className="btn-saffron" style={{ width: '100%', padding: '14px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            Login Now <ArrowRight size={18} />
+          <button className="btn-saffron" disabled={loading} style={{ width: '100%', padding: '14px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            {loading ? <Loader2 className="animate-spin" /> : <>Login Now <ArrowRight size={18} /></>}
           </button>
         </form>
 
