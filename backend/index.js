@@ -111,18 +111,18 @@ app.post('/api/complaints', upload.single('image'), async (req, res) => {
       }
     });
 
-    // Send Confirmation via WhatsApp
+    // Send Confirmation via WhatsApp (Non-blocking)
     const number = `91${mobile}@c.us`;
-    await sendWAMessage(number, `✅ *Complaint Registered Successfully!*\n\n*Tracking ID:* ${complaint.id}\n*Category:* ${complaint.category}\n*Department:* ${complaint.department}\n\nOur team is working on resolving it.`);
+    sendWAMessage(number, `✅ *Complaint Registered Successfully!*\n\n*Tracking ID:* ${complaint.id}\n*Category:* ${complaint.category}\n*Department:* ${complaint.department}\n\nOur team is working on resolving it.`);
 
-    // Send Confirmation via Email if provided
+    // Send Confirmation via Email if provided (Non-blocking)
     if (email) {
-        await sendEmail(
+        sendEmail(
             email, 
             `Complaint Registered: ${complaint.id}`,
             `Hello ${citizenName},\n\nYour complaint regarding ${complaint.category} has been registered successfully. \n\nTracking ID: ${complaint.id}\nDepartment: ${complaint.department}\n\nThank you for using SAMADHAN AI.`,
             `<h1>Complaint Registered</h1><p>Hello <b>${citizenName}</b>,</p><p>Your complaint regarding <b>${complaint.category}</b> has been registered successfully.</p><p><b>Tracking ID:</b> ${complaint.id}</p><p><b>Department:</b> ${complaint.department}</p><p>Thank you for using SAMADHAN AI.</p>`
-        );
+        ).catch(err => console.error("Email failed in background:", err));
     }
 
     res.status(201).json(complaint);

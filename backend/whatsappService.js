@@ -116,7 +116,7 @@ export const initWhatsApp = async () => {
 
 export const waitForReady = () => {
     return new Promise((resolve) => {
-        if (isReady) return resolve();
+        if (isReady || !sock) return resolve(); // Don't wait if not even initialized
         const interval = setInterval(() => {
             if (isReady) {
                 clearInterval(interval);
