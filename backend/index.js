@@ -88,7 +88,7 @@ app.post('/api/vision/analyze', upload.single('image'), async (req, res) => {
 app.post('/api/complaints', upload.single('image'), async (req, res) => {
   try {
     const { citizenName, mobile, email, description, location } = req.body;
-    const imageUrl = req.file ? `http://localhost:5000/uploads/${req.file.filename}` : null;
+    const imageUrl = req.file ? `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}` : null;
     
     // Call the Groq AI service to categorize the complaint!
     console.log("Analyzing complaint with Groq AI...");

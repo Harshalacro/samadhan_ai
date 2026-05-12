@@ -6,7 +6,7 @@ export const ComplaintProvider = ({ children }) => {
   const [complaints, setComplaints] = useState([]);
   const [user, setUser] = useState(null);
   const [officer, setOfficer] = useState(null);
-  const API_URL = 'http://localhost:5000/api';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
   useEffect(() => {
     fetchComplaints();
