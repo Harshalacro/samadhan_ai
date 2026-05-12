@@ -12,7 +12,7 @@ const ChatBot = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const messagesEndRef = useRef(null);
 
   // Chat State Management
@@ -43,7 +43,10 @@ const ChatBot = () => {
       } else if (chatState.action === "ASK_LOCATION") {
         await handleLocationSearch(userMessage);
       } else {
-        const res = await axios.post(`${API_URL}/chat`, { message: userMessage });
+        const res = await axios.post(`${API_URL}/chat`, { 
+            message: userMessage,
+            language: i18n.language || 'en' // Send current language
+        });
         const { reply, intent, action, aiData } = res.data;
 
         setMessages(prev => [...prev, { text: reply, isBot: true }]);

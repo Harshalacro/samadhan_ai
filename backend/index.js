@@ -194,42 +194,54 @@ app.patch('/api/complaints/:id', async (req, res) => {
 
 // WEB CHATBOT ENDPOINT
 app.post('/api/chat', async (req, res) => {
-  const { message, state } = req.body;
-  // state could contain { mobile: "9876543210", location: "Indore" } etc.
+  const { message, language } = req.body;
+  const isHindi = language === 'hi';
   
-  console.log(`Received Web Chat message: ${message}`);
+  console.log(`Received Web Chat message: ${message} (Lang: ${language})`);
 
   try {
-    const ai = await analyzeIntentAndContent(message);
+    const ai = await analyzeIntentAndContent(message, language);
     console.log("AI Intent:", ai.intent);
 
     let replyText = "";
-    let action = null; // Used to tell frontend to do something (e.g. ask_location, show_complaints)
+    let action = null;
 
     if (ai.intent === "TRACK") {
       const trackingId = ai.trackingId;
       if (trackingId) {
         const complaint = await prisma.complaint.findUnique({ where: { id: trackingId } });
         if (complaint) {
-          replyText = `🔍 **Complaint Status**\n\nID: ${complaint.id}\nCategory: ${complaint.category}\nStatus: ${complaint.status}\nDepartment: ${complaint.department}\n\n_Note: Officers are currently working on your issue._`;
+          if (isHindi) {
+            replyText = `🔍 **शिकायत की स्थिति**\n\nID: ${complaint.id}\nश्रेणी: ${complaint.category}\nस्थिति: **${complaint.status}**\nविभाग: ${complaint.department}\n\n_नोट: अधिकारी आपकी समस्या पर काम कर रहे हैं।_`;
+          } else {
+            replyText = `🔍 **Complaint Status**\n\nID: ${complaint.id}\nCategory: ${complaint.category}\nStatus: **${complaint.status}**\nDepartment: ${complaint.department}\n\n_Note: Officers are currently working on your issue._`;
+          }
         } else {
-          replyText = `❌ We couldn't find a complaint with ID ${trackingId}. Please check the ID and try again.`;
+          replyText = isHindi 
+            ? `❌ हमें ID ${trackingId} वाली कोई शिकायत नहीं मिली। कृपया ID जांचें।`
+            : `❌ We couldn't find a complaint with ID ${trackingId}. Please check the ID and try again.`;
         }
       } else {
-        replyText = `Could you please provide the tracking ID or your registered mobile number?`;
+        replyText = isHindi 
+            ? `क्या आप कृपया अपना ट्रैकिंग ID या पंजीकृत मोबाइल नंबर प्रदान कर सकते हैं?`
+            : `Could you please provide the tracking ID or your registered mobile number?`;
         action = "ASK_MOBILE";
       }
     } else if (ai.intent === "ASK") {
-      replyText = `🤖 **SAMADHAN Assistant**\n\n${ai.answer}\n\n_How else can I help you today?_`;
+      replyText = `🤖 **SAMADHAN Assistant**\n\n${ai.answer}\n\n_${isHindi ? 'मैं आपकी और क्या सहायता कर सकता हूँ?' : 'How else can I help you today?'}_`;
     } else {
-      replyText = `It looks like you want to report a problem about ${ai.category}. Could you please provide your location (e.g., City name) so I can check if others are facing this too?`;
+      if (isHindi) {
+        replyText = `ऐसा लगता है कि आप ${ai.category} के बारे में समस्या बताना चाहते हैं। क्या आप कृपया अपना स्थान (जैसे शहर का नाम) बता सकते हैं?`;
+      } else {
+        replyText = `It looks like you want to report a problem about ${ai.category}. Could you please provide your location (e.g., City name) so I can check if others are facing this too?`;
+      }
       action = "ASK_LOCATION";
     }
 
     res.json({ reply: replyText, intent: ai.intent, action: action, aiData: ai });
   } catch (error) {
     console.error("Chat Error:", error);
-    res.status(500).json({ reply: "⚠️ Sorry, I'm having trouble processing your request right now." });
+    res.status(500).json({ reply: isHindi ? "⚠️ क्षमा करें, अभी समस्या हो रही है।" : "⚠️ Sorry, I'm having trouble processing your request right now." });
   }
 });
 

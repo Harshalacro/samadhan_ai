@@ -9,7 +9,8 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
  * Enhanced AI analysis for WhatsApp and Web.
  * Detects if the user wants to report a complaint, track one, or just ask a question.
  */
-export async function analyzeIntentAndContent(text) {
+export async function analyzeIntentAndContent(text, language = 'en') {
+  const targetLang = language === 'hi' ? 'Hindi' : 'English';
   try {
     const chatCompletion = await groq.chat.completions.create({
       messages: [
@@ -17,13 +18,18 @@ export async function analyzeIntentAndContent(text) {
           role: "system",
           content: `You are an AI assistant for SAMADHAN, India's Smart Grievance Redressal System. 
           You must support multiple languages including English, Hindi, Marathi, and Kannada.
-          Your task is to analyze the user's message and categorize it into one of three intents:
+          Your task is to analyze the user's message and categorize it into one of three intents.
+
+          IMPORTANT: The user's preferred language is ${targetLang}. 
+          You MUST provide the "answer" field and any user-facing text in ${targetLang}.
+          
+          Intents:
           1. "REPORT": User is describing a problem (e.g., "pothole", "no water", "noise").
           2. "TRACK": User is asking for status (e.g., "track my complaint", "status of ID 123", "where is my request").
           3. "ASK": User is asking a general question (e.g., "what is samadhan", "how to file complaint", "is there a fee").
 
           Rules:
-          - If the input is in Hindi, Marathi, or Kannada, translate the problem description internally to English for classification, but you can respond in the user's language if intent is "ASK".
+          - If the input is in a different language, translate the intent internally but respond in ${targetLang}.
           - Return a JSON object exactly like this:
           {
             "intent": "REPORT" | "TRACK" | "ASK",
@@ -32,7 +38,7 @@ export async function analyzeIntentAndContent(text) {
             "priority": "P0 Critical" | "P1 High" | "P2 Medium" | "P3 Low",
             "severity": "Critical" | "High" | "Medium" | "Low",
             "confidence": 0-100,
-            "answer": "If intent is ASK, provide a helpful answer in 1-2 sentences in the user's detected language. Otherwise null.",
+            "answer": "If intent is ASK, provide a helpful answer in 1-2 sentences in ${targetLang}. Otherwise null.",
             "trackingId": "If intent is TRACK and a ID is mentioned, extract it, otherwise null"
           }`
         },
