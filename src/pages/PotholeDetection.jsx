@@ -5,6 +5,8 @@ import { Camera, MapPin, Sparkles, CheckCircle, Loader2, ChevronRight, AlertTria
 import { useNavigate } from 'react-router-dom';
 import { useComplaints } from '../context/ComplaintContext';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const PotholeDetection = () => {
   const navigate = useNavigate();
   const { addComplaint, user } = useComplaints();
@@ -35,7 +37,7 @@ const PotholeDetection = () => {
         formData.append('image', f);
         formData.append('task', 'pothole');
         
-        const res = await axios.post('http://localhost:5000/api/vision/analyze', formData);
+        const res = await axios.post(`${API_URL}/vision/analyze`, formData);
         setResult(res.data);
       } catch (err) {
         console.error(err);

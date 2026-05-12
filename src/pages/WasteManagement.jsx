@@ -5,6 +5,8 @@ import { Trash2, MapPin, Camera, Sparkles, CheckCircle, Loader2, ChevronRight, A
 import { useNavigate } from 'react-router-dom';
 import { useComplaints } from '../context/ComplaintContext';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const WasteManagement = () => {
   const navigate = useNavigate();
   const { addComplaint, user } = useComplaints();
@@ -43,7 +45,7 @@ const WasteManagement = () => {
         formData.append('image', f);
         formData.append('task', 'waste');
         
-        const res = await axios.post('http://localhost:5000/api/vision/analyze', formData);
+        const res = await axios.post(`${API_URL}/vision/analyze`, formData);
         setResult(res.data);
       } catch (err) {
         console.error(err);

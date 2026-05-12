@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const ChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -40,7 +42,7 @@ const ChatBot = () => {
       } else if (chatState.action === "ASK_LOCATION") {
         await handleLocationSearch(userMessage);
       } else {
-        const res = await axios.post('http://localhost:5000/api/chat', { message: userMessage });
+        const res = await axios.post(`${API_URL}/chat`, { message: userMessage });
         const { reply, intent, action, aiData } = res.data;
 
         setMessages(prev => [...prev, { text: reply, isBot: true }]);
@@ -61,7 +63,7 @@ const ChatBot = () => {
 
   const handleMobileTracking = async (mobile) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/complaints/mobile/${mobile}`);
+      const res = await axios.get(`${API_URL}/complaints/mobile/${mobile}`);
       if (res.data) {
         const c = res.data;
         const reply = `📋 **Your Latest Complaint**\n\nID: ${c.id}\nStatus: **${c.status}**\nCategory: ${c.category}\n\nIs there anything else I can help with?`;
@@ -77,7 +79,7 @@ const ChatBot = () => {
 
   const handleLocationSearch = async (location) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/complaints/location/${location}`);
+      const res = await axios.get(`${API_URL}/complaints/location/${location}`);
       const complaints = res.data;
 
       if (complaints && complaints.length > 0) {
@@ -114,7 +116,7 @@ const ChatBot = () => {
 
   const handleUpvote = async (id) => {
     try {
-      await axios.patch(`http://localhost:5000/api/complaints/${id}/upvote`);
+      await axios.patch(`${API_URL}/complaints/${id}/upvote`);
       setMessages(prev => prev.map(msg => {
           if (msg.isWidget && msg.widgetType === 'COMPLAINT_LIST') {
               return {
