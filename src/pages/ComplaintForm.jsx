@@ -69,8 +69,12 @@ const ComplaintForm = () => {
   const handleGetOTP = async () => {
     if (!formData.mobile) return alert("Please enter mobile number");
     setLoading(true);
-    await sendOTP(formData.mobile);
-    setOtpSent(true);
+    try {
+      await sendOTP(formData.mobile);
+      setOtpSent(true);
+    } catch (error) {
+      alert("Failed to send OTP: " + (error.message || "Unknown error"));
+    }
     setLoading(false);
   };
 

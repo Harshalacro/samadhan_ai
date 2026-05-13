@@ -16,8 +16,12 @@ const LoginPage = () => {
   const handleGetOTP = async () => {
     if (!mobile) return alert("Please enter mobile number");
     setLoading(true);
-    await sendOTP(mobile);
-    setOtpSent(true);
+    try {
+      await sendOTP(mobile);
+      setOtpSent(true);
+    } catch (error) {
+      alert("Failed to send OTP: " + (error.message || "Unknown error"));
+    }
     setLoading(false);
   };
 
