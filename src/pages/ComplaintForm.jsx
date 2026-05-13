@@ -101,6 +101,41 @@ const ComplaintForm = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [submittedId, setSubmittedId] = useState('');
 
+  const startVoiceRecording = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Your browser does not support Speech Recognition. Please use Chrome or Edge.");
+      return;
+    }
+    
+    if (voiceRecording) return;
+    
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'hi-IN'; 
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    
+    recognition.onstart = () => {
+      setVoiceRecording(true);
+    };
+    
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setComplaintText(prev => prev + (prev ? ' ' : '') + transcript);
+    };
+    
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error", event.error);
+      setVoiceRecording(false);
+    };
+    
+    recognition.onend = () => {
+      setVoiceRecording(false);
+    };
+    
+    recognition.start();
+  };
+
   const handleFinish = async () => {
     setLoading(true);
     
@@ -406,15 +441,7 @@ const ComplaintForm = () => {
                     />
                     <button 
                       type="button"
-                      onClick={() => {
-                        setVoiceRecording(!voiceRecording);
-                        if (!voiceRecording) {
-                          setTimeout(() => {
-                            setComplaintText("कचरा संग्रहण की समस्या है, बहुत बदबू आ रही है।");
-                            setVoiceRecording(false);
-                          }, 3000);
-                        }
-                      }}
+                      onClick={startVoiceRecording}
                       style={{ 
                         position: 'absolute', 
                         bottom: '12px', 
